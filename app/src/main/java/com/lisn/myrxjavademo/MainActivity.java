@@ -61,14 +61,18 @@ public class MainActivity extends AppCompatActivity {
                 // 发送消息
                 e.onNext(1);
                 e.onNext(2);
+                e.onNext(3);
                 e.onComplete();
             }
         });
 
         //2. 创建观察者
         Observer<Integer> observer = new Observer<Integer>() {
+            private Disposable d;
+
             @Override
             public void onSubscribe(Disposable d) {
+                this.d = d;
                 System.out.println("建立订阅关系");
             }
 
@@ -76,6 +80,11 @@ public class MainActivity extends AppCompatActivity {
             public void onNext(Integer integer) {
                 //接受到消息
                 System.out.println(integer);
+
+                if (integer == 2) {
+                    // 在RxJava 2.x 中，新增的Disposable可以做到切断的操作，让Observer观察者不再接收上游事件
+                    d.dispose();
+                }
             }
 
             @Override
@@ -906,10 +915,11 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * 默认发送和接收都是在主线程
-     *
+     * <p>
      * 输出
      * E/MainActivity: 发送: main
      * E/MainActivity: 接收: main
+     *
      * @param view
      */
     public void schedulers(View view) {
@@ -932,15 +942,16 @@ public class MainActivity extends AppCompatActivity {
      * 通过observeOn()只设置观察者线程，
      * 通过AndroidSchedulers.mainThread()得到主线程，
      * 通过Schedulers.io()得到子线程：
-     *
+     * <p>
      * 这一段，先通过subscribeOn(Schedulers.io())把观察者和被观察者都设置到子线程，
      * 如果不写下面这句observeOn(AndroidSchedulers.mainThread())，会输出：
      * E/MainActivity: 发送: RxCachedThreadScheduler-1
      * E/MainActivity: 接收:  RxCachedThreadScheduler-1
-     *
+     * <p>
      * 但是下面又用observeOn(AndroidSchedulers.mainThread())把观察者改回子线程，所以输出：
      * E/MainActivity: 发送: RxCachedThreadScheduler-1
      * E/MainActivity: 接收: main
+     *
      * @param view
      */
     public void schedulersSwitch(View view) {
@@ -977,19 +988,20 @@ public class MainActivity extends AppCompatActivity {
     /**
      * 基本使用
      * Flowable的使用跟Observable很类似，简单使用:
+     *
      * @param view
      */
     public void backpressure(View view) {
         Flowable.create(new FlowableOnSubscribe<Integer>() {
-                    @Override
-                    public void subscribe(FlowableEmitter<Integer> e) throws Exception {
-                        // 改成129就会崩溃
-                        for (int i = 0; i < 128; i++) {
-                            e.onNext(i); // todo 1
-                        }
-                        e.onComplete();
-                    }
-                }, BackpressureStrategy.ERROR)
+            @Override
+            public void subscribe(FlowableEmitter<Integer> e) throws Exception {
+                // 改成129就会崩溃
+                for (int i = 0; i < 128; i++) {
+                    e.onNext(i); // todo 1
+                }
+                e.onComplete();
+            }
+        }, BackpressureStrategy.ERROR)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<Integer>() {
@@ -1005,26 +1017,26 @@ public class MainActivity extends AppCompatActivity {
      * Observable订阅对应的是Observer，而Flowable对应的是Subscriber，
      * Observer和Subscriber对应的回调onSubscribe(..)参数不同，
      * Subscriber的onSubscribe(..)参数拿到的是一个Subscription，这个需要主动去取数据，比如：
-     *      @Override
-     *      public void onSubscribe(Subscription s) {
-     *           s.request(10);
-     *      }
      *
-     *  这样就会onNext()中就会收到前10个。
-     *  那这个使用就很灵活了，根据代码需要，可以在需要的地方主动调用s.request(..)，让观察者接收到数据。
      * @param view
+     * @Override public void onSubscribe(Subscription s) {
+     * s.request(10);
+     * }
+     * <p>
+     * 这样就会onNext()中就会收到前10个。
+     * 那这个使用就很灵活了，根据代码需要，可以在需要的地方主动调用s.request(..)，让观察者接收到数据。
      */
     public void backpressure1(View view) {
         Flowable.create(new FlowableOnSubscribe<Integer>() {
-                    @Override
-                    public void subscribe(FlowableEmitter<Integer> e) throws Exception {
-                        // 改成129就会崩溃
-                        for (int i = 0; i < 128; i++) {
-                            e.onNext(i); // todo 1
-                        }
-                        e.onComplete();
-                    }
-                }, BackpressureStrategy.ERROR)
+            @Override
+            public void subscribe(FlowableEmitter<Integer> e) throws Exception {
+                // 改成129就会崩溃
+                for (int i = 0; i < 128; i++) {
+                    e.onNext(i); // todo 1
+                }
+                e.onComplete();
+            }
+        }, BackpressureStrategy.ERROR)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Subscriber<Integer>() {
@@ -1055,7 +1067,6 @@ public class MainActivity extends AppCompatActivity {
 
     private ProgressDialog progressDialog;
     private ImageView imageView;
-
 
 
     private void getImage(final String path) {
